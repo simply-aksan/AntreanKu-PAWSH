@@ -255,9 +255,9 @@
                             <div class="flex items-center gap-2">
                                 <a href="{{ route('profile') }}" class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl border-2 border-black bg-white hover:bg-[#FAF0CA] shadow-[2px_2px_0px_0px_#121212] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] group {{ request()->routeIs('profile') ? 'bg-[#FAF0CA] ring-2 ring-black' : '' }}" title="Buka Pengaturan Profil Saya">
                                     <!-- Avatar (Photo or Monogram) -->
-                                    @if (auth()->user()->avatar && file_exists(public_path(auth()->user()->avatar)))
+                                    @if (auth()->user()->avatar_url)
                                         <img 
-                                            src="{{ asset(auth()->user()->avatar) }}" 
+                                            src="{{ auth()->user()->avatar_url }}" 
                                             alt="{{ $cleanUserName }}" 
                                             class="w-7 h-7 rounded-lg border-2 border-black object-cover shrink-0 shadow-[1px_1px_0px_0px_#000]"
                                         >
@@ -346,9 +346,9 @@
                         class="p-3 rounded-xl border-2 border-black bg-white hover:bg-[#FAF0CA] shadow-[2px_2px_0px_0px_#000] flex items-center justify-between transition-all group"
                     >
                         <div class="flex items-center gap-3">
-                            @if (auth()->user()->avatar && file_exists(public_path(auth()->user()->avatar)))
+                            @if (auth()->user()->avatar_url)
                                 <img 
-                                    src="{{ asset(auth()->user()->avatar) }}" 
+                                    src="{{ auth()->user()->avatar_url }}" 
                                     alt="{{ $cleanUserName }}" 
                                     class="w-10 h-10 rounded-xl border-2 border-black object-cover shrink-0 shadow-[1px_1px_0px_0px_#000]"
                                 >

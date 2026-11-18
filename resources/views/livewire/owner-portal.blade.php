@@ -172,8 +172,8 @@
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
                                 <div class="w-10 h-10 rounded-xl border-2 border-black flex items-center justify-center font-display font-black text-sm text-black shadow-[2px_2px_0px_0px_#000] shrink-0 overflow-hidden" style="background-color: {{ $stf->badge_color }}">
-                                    @if ($stf->avatar && file_exists(public_path($stf->avatar)))
-                                        <img src="{{ asset($stf->avatar) }}" alt="{{ $stf->nickname }}" class="w-full h-full object-cover">
+                                    @if ($stf->avatar_url)
+                                        <img src="{{ $stf->avatar_url }}" alt="{{ $stf->nickname }}" class="w-full h-full object-cover">
                                     @else
                                         {{ mb_substr(preg_replace('/^Kak\s+/i', '', $stf->nickname), 0, 1) }}
                                     @endif

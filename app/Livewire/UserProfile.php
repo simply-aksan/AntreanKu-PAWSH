@@ -164,27 +164,33 @@ class UserProfile extends Component
             return;
         }
 
-        $avatarDir = public_path('uploads/avatars');
-        if (! file_exists($avatarDir)) {
-            mkdir($avatarDir, 0755, true);
+        $isServerless = isset($_ENV['VERCEL']) || isset($_SERVER['VERCEL']) || ! is_writable(public_path());
+
+        if ($isServerless) {
+            $storedAvatarValue = $base64Data;
+        } else {
+            $avatarDir = public_path('uploads/avatars');
+            if (! file_exists($avatarDir)) {
+                mkdir($avatarDir, 0755, true);
+            }
+
+            // Delete old avatar file if exists on local disk
+            if ($user->avatar && ! str_starts_with($user->avatar, 'data:image/') && file_exists(public_path($user->avatar))) {
+                @unlink(public_path($user->avatar));
+            }
+
+            $fileName = 'avatar_'.$user->id.'_'.time().'.png';
+            $storedAvatarValue = 'uploads/avatars/'.$fileName;
+            file_put_contents(public_path($storedAvatarValue), $decodedData);
         }
 
-        // Delete old avatar file if exists
-        if ($user->avatar && file_exists(public_path($user->avatar))) {
-            @unlink(public_path($user->avatar));
-        }
-
-        $fileName = 'avatar_'.$user->id.'_'.time().'.png';
-        $relativeFilePath = 'uploads/avatars/'.$fileName;
-        file_put_contents(public_path($relativeFilePath), $decodedData);
-
-        $user->avatar = $relativeFilePath;
+        $user->avatar = $storedAvatarValue;
         $user->save();
 
         // If staff, also mirror to staffProfile avatar for consistent public display
         if ($user->role === 'staff' && $user->staffProfile) {
             $user->staffProfile->update([
-                'avatar' => $relativeFilePath,
+                'avatar' => $storedAvatarValue,
             ]);
         }
 
@@ -195,7 +201,7 @@ class UserProfile extends Component
     {
         $user = Auth::user();
 
-        if ($user->avatar && file_exists(public_path($user->avatar))) {
+        if ($user->avatar && ! str_starts_with($user->avatar, 'data:image/') && file_exists(public_path($user->avatar))) {
             @unlink(public_path($user->avatar));
         }
 

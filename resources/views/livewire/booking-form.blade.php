@@ -111,8 +111,8 @@
                             >
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-xl border-2 border-black flex items-center justify-center font-display font-black text-sm text-black shadow-[2px_2px_0px_0px_#000] shrink-0 overflow-hidden" style="background-color: {{ $staff->badge_color }}">
-                                        @if ($staff->avatar && file_exists(public_path($staff->avatar)))
-                                            <img src="{{ asset($staff->avatar) }}" alt="{{ $staff->nickname }}" class="w-full h-full object-cover">
+                                        @if ($staff->avatar_url)
+                                            <img src="{{ $staff->avatar_url }}" alt="{{ $staff->nickname }}" class="w-full h-full object-cover">
                                         @else
                                             {{ mb_substr(preg_replace('/^Kak\s+/i', '', $staff->nickname), 0, 1) }}
                                         @endif

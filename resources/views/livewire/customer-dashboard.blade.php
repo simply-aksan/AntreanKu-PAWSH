@@ -8,8 +8,8 @@
         <div class="flex items-center gap-4 relative z-10">
             <!-- User Avatar Monogram or Image -->
             <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border-3 border-black bg-white shadow-[3px_3px_0px_0px_#000] flex items-center justify-center shrink-0 overflow-hidden font-display font-black text-xl text-black">
-                @if ($user->avatar && file_exists(public_path($user->avatar)))
-                    <img src="{{ asset($user->avatar) }}" alt="{{ $user->name }}" class="w-full h-full object-cover">
+                @if ($user->avatar_url)
+                    <img src="{{ $user->avatar_url }}" alt="{{ $user->name }}" class="w-full h-full object-cover">
                 @else
                     {{ strtoupper(substr($user->name, 0, 2)) }}
                 @endif

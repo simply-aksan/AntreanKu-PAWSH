@@ -27,6 +27,26 @@ class User extends Authenticatable
     }
 
     /**
+     * Resolve the avatar URL for both local file paths and serverless Data URIs.
+     */
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if (! $this->avatar) {
+            return null;
+        }
+
+        if (str_starts_with($this->avatar, 'data:image/') || str_starts_with($this->avatar, 'http://') || str_starts_with($this->avatar, 'https://')) {
+            return $this->avatar;
+        }
+
+        if (file_exists(public_path($this->avatar))) {
+            return asset($this->avatar);
+        }
+
+        return null;
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

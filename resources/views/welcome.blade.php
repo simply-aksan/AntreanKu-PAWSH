@@ -190,8 +190,8 @@
                 <div class="border-3 border-black rounded-2xl bg-white p-6 shadow-[5px_5px_0px_0px_#121212] space-y-4">
                     <div class="flex items-center gap-4">
                         <div class="w-14 h-14 rounded-2xl border-2 border-black flex items-center justify-center shadow-[3px_3px_0px_0px_#000] font-display font-black text-xl text-black shrink-0 overflow-hidden" style="background-color: {{ $staff->badge_color }}">
-                            @if ($staff->avatar && file_exists(public_path($staff->avatar)))
-                                <img src="{{ asset($staff->avatar) }}" alt="{{ $staff->nickname }}" class="w-full h-full object-cover">
+                            @if ($staff->avatar_url)
+                                <img src="{{ $staff->avatar_url }}" alt="{{ $staff->nickname }}" class="w-full h-full object-cover">
                             @else
                                 {{ mb_substr(preg_replace('/^Kak\s+/i', '', $staff->nickname), 0, 1) }}
                             @endif

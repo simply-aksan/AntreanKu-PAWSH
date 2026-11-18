@@ -162,9 +162,9 @@
                 <div class="flex flex-col items-center text-center space-y-3 relative z-10">
                     <!-- Avatar Photo or Big Monogram Initial -->
                     <div class="relative group">
-                        @if ($user->avatar && file_exists(public_path($user->avatar)))
+                        @if ($user->avatar_url)
                             <img 
-                                src="{{ asset($user->avatar) }}?v={{ time() }}" 
+                                src="{{ str_starts_with($user->avatar_url, 'data:') ? $user->avatar_url : $user->avatar_url.'?v='.time() }}" 
                                 alt="{{ $user->name }}" 
                                 class="w-24 h-24 rounded-2xl border-3 border-black object-cover shadow-[4px_4px_0px_0px_#000]"
                             >

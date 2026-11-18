@@ -19,9 +19,19 @@ use Illuminate\Support\Facades\Route;
 // Public Pages
 Route::get('/', function () {
     return view('welcome', [
-        'services' => Service::where('is_active', true)->get(),
-        'staffProfiles' => StaffProfile::where('is_active', true)->get(),
-        'servingAppointment' => Appointment::whereDate('booking_date', Carbon::today()->format('Y-m-d'))
+        'services' => Service::query()
+            ->select(['id', 'name', 'slug', 'description', 'price', 'duration_minutes', 'icon', 'badge_color'])
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get(),
+        'staffProfiles' => StaffProfile::query()
+            ->select(['id', 'nickname', 'title', 'bio', 'avatar', 'badge_color'])
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get(),
+        'servingAppointment' => Appointment::query()
+            ->select(['id', 'ticket_number', 'pet_name', 'status', 'booking_date'])
+            ->whereDate('booking_date', Carbon::today()->format('Y-m-d'))
             ->where('status', 'serving')
             ->first(),
     ]);
@@ -44,10 +54,16 @@ Route::post('/logout', function () {
     session()->regenerateToken();
 
     return redirect('/');
-})->name('logout');
+})->middleware('auth')->name('logout');
 
 // Role Protected Dashboards & Profile
-Route::get('/profil', UserProfile::class)->name('profile');
-Route::get('/customer/dashboard', CustomerDashboard::class)->name('customer-dashboard');
-Route::get('/app/workstation', CashierWorkstation::class)->name('workstation');
-Route::get('/app/owner', OwnerPortal::class)->name('owner');
+Route::middleware('auth')->group(function (): void {
+    Route::get('/profil', UserProfile::class)->name('profile');
+    Route::get('/customer/dashboard', CustomerDashboard::class)->name('customer-dashboard');
+    Route::get('/app/workstation', CashierWorkstation::class)
+        ->middleware('role:owner,staff')
+        ->name('workstation');
+    Route::get('/app/owner', OwnerPortal::class)
+        ->middleware('role:owner')
+        ->name('owner');
+});

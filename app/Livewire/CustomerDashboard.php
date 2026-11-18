@@ -22,8 +22,10 @@ class CustomerDashboard extends Component
 
     public function searchTicket(): void
     {
+        abort_unless(Auth::check(), 401);
+
         $this->validate([
-            'searchQuery' => 'required|string|min:2',
+            'searchQuery' => 'required|string|min:2|max:60',
         ], [
             'searchQuery.required' => 'Masukkan nomor tiket, kode lacak, atau nama anabul.',
             'searchQuery.min' => 'Pencarian minimal 2 karakter.',
@@ -41,12 +43,12 @@ class CustomerDashboard extends Component
     public function cancelTicket(int $id): void
     {
         $user = Auth::user();
+        if (! $user || empty($user->phone)) {
+            abort(403, 'Anda tidak memiliki izin untuk membatalkan tiket ini.');
+        }
+
         $app = Appointment::where('id', $id)
-            ->where(function ($query) use ($user) {
-                if ($user->phone) {
-                    $query->where('customer_phone', $user->phone);
-                }
-            })
+            ->where('customer_phone', $user->phone)
             ->where('status', 'pending')
             ->first();
 
@@ -59,7 +61,7 @@ class CustomerDashboard extends Component
     public function render()
     {
         $user = Auth::user();
-        $userPhone = $user?->phone ?? '';
+        $userPhone = trim((string) ($user?->phone ?? ''));
 
         $today = Carbon::today()->format('Y-m-d');
 
@@ -67,7 +69,7 @@ class CustomerDashboard extends Component
         $pastAppointments = collect();
         $searchResults = collect();
 
-        if ($userPhone) {
+        if ($userPhone !== '') {
             $activeAppointments = Appointment::with(['service', 'staff'])
                 ->where('customer_phone', $userPhone)
                 ->where('booking_date', '>=', $today)
@@ -78,33 +80,27 @@ class CustomerDashboard extends Component
 
             $pastAppointments = Appointment::with(['service', 'staff', 'transaction'])
                 ->where('customer_phone', $userPhone)
-                ->where(function ($query) use ($today) {
+                ->where(function ($query) use ($today): void {
                     $query->where('booking_date', '<', $today)
                         ->orWhereIn('status', ['completed', 'cancelled', 'no_show']);
                 })
                 ->latest()
                 ->take(10)
                 ->get();
-        }
 
-        if ($this->hasSearched && strlen(trim($this->searchQuery)) >= 2) {
-            $q = trim($this->searchQuery);
-            $searchResults = Appointment::with(['service', 'staff', 'transaction'])
-                ->where(function ($query) use ($userPhone, $q) {
-                    $query->where(function ($sub) use ($userPhone, $q) {
-                        if ($userPhone) {
-                            $sub->where('customer_phone', $userPhone);
-                        }
-                        $sub->where(function ($filter) use ($q) {
-                            $filter->where('ticket_number', 'like', '%'.$q.'%')
-                                ->orWhere('tracking_code', 'like', '%'.$q.'%')
-                                ->orWhere('pet_name', 'like', '%'.$q.'%');
-                        });
-                    })->orWhere('tracking_code', $q);
-                })
-                ->latest()
-                ->take(10)
-                ->get();
+            if ($this->hasSearched && strlen(trim($this->searchQuery)) >= 2) {
+                $q = trim($this->searchQuery);
+                $searchResults = Appointment::with(['service', 'staff', 'transaction'])
+                    ->where('customer_phone', $userPhone)
+                    ->where(function ($filter) use ($q): void {
+                        $filter->where('ticket_number', 'like', '%'.$q.'%')
+                            ->orWhere('tracking_code', 'like', '%'.$q.'%')
+                            ->orWhere('pet_name', 'like', '%'.$q.'%');
+                    })
+                    ->latest()
+                    ->take(10)
+                    ->get();
+            }
         }
 
         return view('livewire.customer-dashboard', [

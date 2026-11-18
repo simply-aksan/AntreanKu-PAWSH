@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Appointment;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 class TicketStatus extends Component
@@ -13,10 +14,11 @@ class TicketStatus extends Component
 
     public function mount(string $tracking_code): void
     {
-        $this->tracking_code = $tracking_code;
+        $this->tracking_code = trim($tracking_code);
     }
 
-    public function getAppointmentProperty(): ?Appointment
+    #[Computed]
+    public function appointment(): ?Appointment
     {
         return Appointment::with(['service', 'staff', 'transaction'])
             ->where('tracking_code', $this->tracking_code)
@@ -26,14 +28,15 @@ class TicketStatus extends Component
     /**
      * Count how many appointments are ahead of this ticket today.
      */
-    public function getQueuesAheadCountProperty(): int
+    #[Computed]
+    public function queuesAheadCount(): int
     {
         $app = $this->appointment;
-        if (! $app || ! in_array($app->status, ['pending', 'serving'])) {
+        if (! $app || ! in_array($app->status, ['pending', 'serving'], true)) {
             return 0;
         }
 
-        return Appointment::where('booking_date', $app->booking_date)
+        return Appointment::whereDate('booking_date', $app->booking_date)
             ->where('status', 'pending')
             ->where('time_slot', '<', $app->time_slot)
             ->count();
@@ -42,10 +45,11 @@ class TicketStatus extends Component
     public function cancelAppointment(): void
     {
         $app = $this->appointment;
-        if ($app && in_array($app->status, ['pending'])) {
+        if ($app && $app->status === 'pending') {
             $app->update([
                 'status' => 'cancelled',
             ]);
+            unset($this->appointment, $this->queuesAheadCount);
             $this->showCancelModal = false;
             session()->flash('success', 'Reservasi tiket #'.$app->ticket_number.' telah berhasil dibatalkan. Slot jam kini terbuka kembali.');
         }

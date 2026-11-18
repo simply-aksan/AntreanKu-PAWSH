@@ -1,4 +1,4 @@
-<div wire:poll.5s class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
+<div wire:poll.visible.10s class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
     <!-- Header Notice -->
     <div class="text-center space-y-2 mb-8">
         <span class="inline-block px-3 py-1 rounded-md border-2 border-black bg-[#A7D7C5] font-black text-xs uppercase tracking-wider shadow-[2px_2px_0px_0px_#121212]">

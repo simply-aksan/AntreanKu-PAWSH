@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Services\GeminiConsultantService;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
 
 class AiConsultantModal extends Component
@@ -44,12 +45,22 @@ class AiConsultantModal extends Component
 
     public function askAi(GeminiConsultantService $consultant): void
     {
+        $throttleKey = 'ai-consult:'.request()->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 10)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            $this->addError('petQuery', 'Batas permintaan AI tercapai. Silakan tunggu '.$seconds.' detik.');
+
+            return;
+        }
+
         $this->validate([
             'petQuery' => 'required|string|min:3|max:500',
         ], [
             'petQuery.required' => 'Silakan ceritakan kondisi atau keluhan anabul Anda.',
             'petQuery.min' => 'Ceritakan kondisi minimal 3 karakter.',
         ]);
+
+        RateLimiter::hit($throttleKey, 60);
 
         $this->result = $consultant->consult($this->petQuery);
     }
@@ -66,7 +77,7 @@ class AiConsultantModal extends Component
         if (! empty($this->result['recommended_service_id'])) {
             $this->isOpen = false;
 
-            return $this->redirect(route('booking', ['service' => $this->result['recommended_service_id']]), navigate: true);
+            return $this->redirect(route('booking', ['service' => (int) $this->result['recommended_service_id']]), navigate: true);
         }
 
         return $this->redirect(route('booking'), navigate: true);

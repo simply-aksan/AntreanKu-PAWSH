@@ -578,4 +578,139 @@ class AntreanKuFeatureTest extends TestCase
             ->call('closeModal')
             ->assertSet('isOpen', false);
     }
+
+    public function test_security_headers_are_applied_to_responses(): void
+    {
+        $response = $this->get(route('home'));
+
+        $response->assertStatus(200);
+        $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    }
+
+    public function test_role_middleware_blocks_unauthorized_access_to_owner_and_workstation(): void
+    {
+        // Guest redirected to login
+        $this->get(route('owner'))->assertRedirect(route('login'));
+        $this->get(route('workstation'))->assertRedirect(route('login'));
+
+        // Customer blocked with 403
+        $customer = User::create([
+            'name' => 'Regular Customer',
+            'phone' => '081200001111',
+            'password' => bcrypt('password'),
+            'role' => 'customer',
+        ]);
+        $this->actingAs($customer);
+        $this->get(route('owner'))->assertStatus(403);
+        $this->get(route('workstation'))->assertStatus(403);
+
+        // Staff blocked from Owner portal with 403
+        $this->actingAs($this->staffUser);
+        $this->get(route('owner'))->assertStatus(403);
+        $this->get(route('workstation'))->assertStatus(200);
+    }
+
+    public function test_customer_without_phone_cannot_cancel_another_customers_ticket(): void
+    {
+        $today = Carbon::today()->format('Y-m-d');
+
+        $victimAppointment = Appointment::create([
+            'ticket_number' => 'PAW-99',
+            'tracking_code' => 'TRK-VICTIM99',
+            'customer_name' => 'Korban Pelanggan',
+            'customer_phone' => '081999111222',
+            'pet_name' => 'Bola',
+            'pet_type' => 'Kucing',
+            'staff_id' => $this->staff->id,
+            'service_id' => $this->service->id,
+            'booking_date' => $today,
+            'time_slot' => '16:00',
+            'type' => 'online',
+            'status' => 'pending',
+        ]);
+
+        $noPhoneUser = User::create([
+            'name' => 'No Phone User',
+            'email' => 'nophone@pawsh.test',
+            'phone' => null,
+            'password' => bcrypt('password'),
+            'role' => 'customer',
+        ]);
+
+        $this->actingAs($noPhoneUser);
+
+        Livewire::test(CustomerDashboard::class)
+            ->call('cancelTicket', $victimAppointment->id)
+            ->assertForbidden();
+
+        $this->assertEquals('pending', $victimAppointment->fresh()->status);
+    }
+
+    public function test_public_check_ticket_prevents_wildcard_pii_enumeration(): void
+    {
+        $today = Carbon::today()->format('Y-m-d');
+
+        Appointment::create([
+            'ticket_number' => 'PAW-88',
+            'tracking_code' => 'TRK-EXACT888',
+            'customer_name' => 'Rahasia Pelanggan',
+            'customer_phone' => '081888777666',
+            'pet_name' => 'Snowy',
+            'pet_type' => 'Kucing',
+            'staff_id' => $this->staff->id,
+            'service_id' => $this->service->id,
+            'booking_date' => $today,
+            'time_slot' => '17:00',
+            'type' => 'online',
+            'status' => 'pending',
+        ]);
+
+        // Partial phone prefix must not leak tickets
+        Livewire::test(CheckTicket::class)
+            ->set('query', '08188')
+            ->call('search')
+            ->assertDontSee('Rahasia Pelanggan')
+            ->assertDontSee('PAW-88');
+
+        // Exact tracking code succeeds
+        Livewire::test(CheckTicket::class)
+            ->set('query', 'TRK-EXACT888')
+            ->call('search')
+            ->assertSee('PAW-88')
+            ->assertSee('Snowy');
+    }
+
+    public function test_owner_portal_rejects_css_injection_in_badge_color(): void
+    {
+        $this->actingAs($this->ownerUser);
+
+        Livewire::test(OwnerPortal::class)
+            ->set('new_name', 'Paket Tes Warna')
+            ->set('new_price', 50000)
+            ->set('new_duration', 30)
+            ->set('new_badge_color', '#FFBA08; background:url(javascript:alert(1))')
+            ->call('createService')
+            ->assertHasErrors(['new_badge_color']);
+    }
+
+    public function test_login_rate_limiter_blocks_brute_force_attempts(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            Livewire::test(Login::class)
+                ->set('login', 'owner@pawsh.test')
+                ->set('password', 'wrong-password')
+                ->call('authenticate')
+                ->assertHasErrors(['login']);
+        }
+
+        Livewire::test(Login::class)
+            ->set('login', 'owner@pawsh.test')
+            ->set('password', 'password')
+            ->call('authenticate')
+            ->assertHasErrors(['login']);
+
+        $this->assertGuest();
+    }
 }

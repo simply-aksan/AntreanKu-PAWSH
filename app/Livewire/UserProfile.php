@@ -53,6 +53,8 @@ class UserProfile extends Component
 
     public function updateProfile(): void
     {
+        abort_unless(Auth::check(), 401);
+
         $user = Auth::user();
 
         $rules = [
@@ -107,6 +109,8 @@ class UserProfile extends Component
 
     public function updatePassword(): void
     {
+        abort_unless(Auth::check(), 401);
+
         $this->validate([
             'current_password' => 'required|current_password:web',
             'new_password' => 'required|string|min:6|different:current_password',
@@ -132,6 +136,8 @@ class UserProfile extends Component
 
     public function saveAvatar(string $base64Data): void
     {
+        abort_unless(Auth::check(), 401);
+
         $user = Auth::user();
 
         // Validate base64 image data
@@ -142,17 +148,17 @@ class UserProfile extends Component
         }
 
         $imageType = strtolower($matches[1]);
-        if (! in_array($imageType, ['jpg', 'jpeg', 'png', 'webp'])) {
+        if (! in_array($imageType, ['jpg', 'jpeg', 'png', 'webp'], true)) {
             $this->addError('avatar', 'Format gambar harus JPG, PNG, atau WEBP.');
 
             return;
         }
 
         $data = substr($base64Data, strpos($base64Data, ',') + 1);
-        $decodedData = base64_decode($data);
+        $decodedData = base64_decode($data, true);
 
-        if ($decodedData === false) {
-            $this->addError('avatar', 'Gagal memproses gambar avatar.');
+        if ($decodedData === false || @getimagesizefromstring($decodedData) === false) {
+            $this->addError('avatar', 'File yang diunggah bukan gambar valid.');
 
             return;
         }
@@ -199,6 +205,8 @@ class UserProfile extends Component
 
     public function deleteAvatar(): void
     {
+        abort_unless(Auth::check(), 401);
+
         $user = Auth::user();
 
         if ($user->avatar && ! str_starts_with($user->avatar, 'data:image/') && file_exists(public_path($user->avatar))) {

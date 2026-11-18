@@ -3,6 +3,8 @@
 namespace App\Livewire\Auth;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 class Login extends Component
@@ -19,8 +21,8 @@ class Login extends Component
     protected function rules(): array
     {
         return [
-            'login' => 'required|string',
-            'password' => 'required|string',
+            'login' => 'required|string|max:120',
+            'password' => 'required|string|max:128',
         ];
     }
 
@@ -39,20 +41,32 @@ class Login extends Component
     {
         $this->validate();
 
+        $normalizedLogin = Str::lower(trim($this->login));
+        $throttleKey = 'login:'.$normalizedLogin.'|'.request()->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            $this->addError('login', 'Terlalu banyak percobaan masuk. Coba lagi dalam '.$seconds.' detik.');
+
+            return;
+        }
+
         // Determine if login input is email or phone
-        $loginType = filter_var($this->login, FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
+        $loginType = filter_var(trim($this->login), FILTER_VALIDATE_EMAIL) ? 'email' : 'phone';
 
         $credentials = [
-            $loginType => $this->login,
+            $loginType => trim($this->login),
             'password' => $this->password,
         ];
 
         if (! Auth::attempt($credentials, $this->remember)) {
+            RateLimiter::hit($throttleKey, 60);
             $this->addError('login', 'Kredensial yang dimasukkan tidak cocok dengan catatan kami.');
 
             return;
         }
 
+        RateLimiter::clear($throttleKey);
         session()->regenerate();
 
         $user = Auth::user();
@@ -60,7 +74,7 @@ class Login extends Component
         session()->flash('success', 'Selamat datang kembali, '.$user->name.'!');
 
         $intended = session()->pull('url.intended');
-        if ($intended) {
+        if ($intended && str_starts_with($intended, url('/'))) {
             return $this->redirect($intended, navigate: true);
         }
 

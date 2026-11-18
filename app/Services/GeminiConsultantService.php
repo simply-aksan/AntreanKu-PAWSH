@@ -108,23 +108,30 @@ Katalog Layanan Resmi:
 Daftar Groomer Bertugas:
 {$staffContext}";
 
-        $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={$apiKey}";
+        $cleanQuery = preg_replace('/[\x00-\x1F\x7F]/u', ' ', trim($query)) ?? '';
+        $endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
 
-        $response = Http::timeout(6)
-            ->withoutVerifying()
-            ->post($endpoint, [
-                'contents' => [
-                    [
-                        'parts' => [
-                            ['text' => $systemPrompt."\n\nKeluhan Pemilik Anabul: \"".$query.'"'],
-                        ],
+        $http = Http::timeout(6)->withHeaders([
+            'x-goog-api-key' => $apiKey,
+        ]);
+
+        if (app()->isLocal()) {
+            $http = $http->withoutVerifying();
+        }
+
+        $response = $http->post($endpoint, [
+            'contents' => [
+                [
+                    'parts' => [
+                        ['text' => $systemPrompt."\n\nKeluhan Pemilik Anabul: \"".$cleanQuery.'"'],
                     ],
                 ],
-                'generationConfig' => [
-                    'temperature' => 0.2,
-                    'maxOutputTokens' => 600,
-                ],
-            ]);
+            ],
+            'generationConfig' => [
+                'temperature' => 0.2,
+                'maxOutputTokens' => 600,
+            ],
+        ]);
 
         if (! $response->successful()) {
             return null;

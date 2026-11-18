@@ -8,12 +8,21 @@ use App\Models\StaffProfile;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Livewire\Component;
 
 class OwnerPortal extends Component
 {
+    /**
+     * Allowed Lucide icon keys for service cards.
+     *
+     * @var array<int, string>
+     */
+    private const ALLOWED_ICONS = ['bath', 'scissors', 'sparkles', 'dog', 'heart', 'paw-print'];
+
     // New Service form state
     public bool $showNewServiceModal = false;
 
@@ -80,6 +89,14 @@ class OwnerPortal extends Component
 
     public string $edit_staff_badge_color = '#FFBA08';
 
+    private function authorizeOwner(): void
+    {
+        $user = Auth::user();
+        if (! $user || $user->role !== 'owner') {
+            abort(403, 'Akses terbatas khusus Pemilik Usaha (Owner).');
+        }
+    }
+
     public function mount()
     {
         // Enforce Owner Authentication
@@ -87,28 +104,32 @@ class OwnerPortal extends Component
             return $this->redirect(route('login'), navigate: true);
         }
 
-        if (Auth::user()->role !== 'owner') {
-            abort(403, 'Akses terbatas khusus Pemilik Usaha (Owner).');
-        }
+        $this->authorizeOwner();
     }
 
     /* ---------------- SERVICES CRUD ---------------- */
 
     public function createService(): void
     {
+        $this->authorizeOwner();
+
         $this->validate([
-            'new_name' => 'required|string|min:3|max:100',
-            'new_price' => 'required|integer|min:1000',
-            'new_duration' => 'required|integer|min:15|max:180',
+            'new_name' => ['required', 'string', 'min:3', 'max:100'],
+            'new_description' => ['nullable', 'string', 'max:500'],
+            'new_price' => ['required', 'integer', 'min:1000', 'max:50000000'],
+            'new_duration' => ['required', 'integer', 'min:15', 'max:180'],
+            'new_icon' => ['required', 'string', Rule::in(self::ALLOWED_ICONS)],
+            'new_badge_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ], [
             'new_name.required' => 'Nama layanan wajib diisi.',
             'new_price.required' => 'Tarif layanan wajib diisi.',
+            'new_badge_color.regex' => 'Format warna badge harus berupa kode hex yang valid.',
         ]);
 
         Service::create([
-            'name' => $this->new_name,
-            'slug' => Str::slug($this->new_name).'-'.rand(100, 999),
-            'description' => $this->new_description ?: 'Layanan perawatan higienis dan profesional.',
+            'name' => trim($this->new_name),
+            'slug' => Str::slug($this->new_name).'-'.strtolower(Str::random(4)),
+            'description' => trim($this->new_description) ?: 'Layanan perawatan higienis dan profesional.',
             'price' => $this->new_price,
             'duration_minutes' => $this->new_duration,
             'icon' => $this->new_icon,
@@ -128,30 +149,37 @@ class OwnerPortal extends Component
 
     public function openEditService(int $id): void
     {
+        $this->authorizeOwner();
+
         $service = Service::findOrFail($id);
         $this->edit_service_id = $service->id;
         $this->edit_name = $service->name;
         $this->edit_description = (string) $service->description;
         $this->edit_price = (int) $service->price;
         $this->edit_duration = (int) $service->duration_minutes;
-        $this->edit_icon = $service->icon;
-        $this->edit_badge_color = $service->badge_color;
+        $this->edit_icon = in_array($service->icon, self::ALLOWED_ICONS, true) ? $service->icon : 'sparkles';
+        $this->edit_badge_color = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $service->badge_color) ? $service->badge_color : '#FFBA08';
 
         $this->showEditServiceModal = true;
     }
 
     public function updateService(): void
     {
+        $this->authorizeOwner();
+
         $this->validate([
-            'edit_name' => 'required|string|min:3|max:100',
-            'edit_price' => 'required|integer|min:1000',
-            'edit_duration' => 'required|integer|min:15|max:180',
+            'edit_name' => ['required', 'string', 'min:3', 'max:100'],
+            'edit_description' => ['nullable', 'string', 'max:500'],
+            'edit_price' => ['required', 'integer', 'min:1000', 'max:50000000'],
+            'edit_duration' => ['required', 'integer', 'min:15', 'max:180'],
+            'edit_icon' => ['required', 'string', Rule::in(self::ALLOWED_ICONS)],
+            'edit_badge_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ]);
 
         $service = Service::findOrFail($this->edit_service_id);
         $service->update([
-            'name' => $this->edit_name,
-            'description' => $this->edit_description,
+            'name' => trim($this->edit_name),
+            'description' => trim($this->edit_description),
             'price' => $this->edit_price,
             'duration_minutes' => $this->edit_duration,
             'icon' => $this->edit_icon,
@@ -166,6 +194,8 @@ class OwnerPortal extends Component
 
     public function deleteService(int $id): void
     {
+        $this->authorizeOwner();
+
         $service = Service::findOrFail($id);
         $name = $service->name;
         $service->delete();
@@ -175,6 +205,8 @@ class OwnerPortal extends Component
 
     public function toggleServiceStatus(int $id): void
     {
+        $this->authorizeOwner();
+
         $service = Service::findOrFail($id);
         $service->update(['is_active' => ! $service->is_active]);
         session()->flash('success', 'Status layanan '.$service->name.' diperbarui.');
@@ -184,12 +216,16 @@ class OwnerPortal extends Component
 
     public function createStaff(): void
     {
+        $this->authorizeOwner();
+
         $this->validate([
-            'new_staff_name' => 'required|string|min:3|max:100',
-            'new_staff_nickname' => 'required|string|min:2|max:50',
-            'new_staff_title' => 'required|string|max:100',
-            'new_staff_phone' => 'required|string|min:9|max:20|unique:users,phone',
-            'new_staff_email' => 'nullable|email|unique:users,email',
+            'new_staff_name' => ['required', 'string', 'min:3', 'max:100'],
+            'new_staff_nickname' => ['required', 'string', 'min:2', 'max:50'],
+            'new_staff_title' => ['required', 'string', 'max:100'],
+            'new_staff_bio' => ['nullable', 'string', 'max:500'],
+            'new_staff_phone' => ['required', 'string', 'min:9', 'max:20', 'unique:users,phone'],
+            'new_staff_email' => ['nullable', 'email', 'max:100', 'unique:users,email'],
+            'new_staff_badge_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ], [
             'new_staff_name.required' => 'Nama lengkap staf wajib diisi.',
             'new_staff_nickname.required' => 'Nama panggilan staf wajib diisi.',
@@ -197,22 +233,24 @@ class OwnerPortal extends Component
             'new_staff_phone.unique' => 'Nomor HP ini sudah digunakan akun lain.',
         ]);
 
-        $user = User::create([
-            'name' => $this->new_staff_name,
-            'email' => $this->new_staff_email ?: 'staff'.rand(1000, 9999).'@pawsh.test',
-            'phone' => $this->new_staff_phone,
-            'password' => Hash::make('password'),
-            'role' => 'staff',
-        ]);
+        DB::transaction(function (): void {
+            $user = User::create([
+                'name' => trim($this->new_staff_name),
+                'email' => $this->new_staff_email ? trim($this->new_staff_email) : 'staff.'.strtolower(Str::random(8)).'@pawsh.test',
+                'phone' => trim($this->new_staff_phone),
+                'password' => Hash::make('password'),
+                'role' => 'staff',
+            ]);
 
-        StaffProfile::create([
-            'user_id' => $user->id,
-            'nickname' => $this->new_staff_nickname,
-            'title' => $this->new_staff_title,
-            'bio' => $this->new_staff_bio ?: 'Staf groomer profesional berdedikasi tinggi.',
-            'badge_color' => $this->new_staff_badge_color,
-            'is_active' => true,
-        ]);
+            StaffProfile::create([
+                'user_id' => $user->id,
+                'nickname' => trim($this->new_staff_nickname),
+                'title' => trim($this->new_staff_title),
+                'bio' => trim($this->new_staff_bio) ?: 'Staf groomer profesional berdedikasi tinggi.',
+                'badge_color' => $this->new_staff_badge_color,
+                'is_active' => true,
+            ]);
+        });
 
         $this->reset([
             'new_staff_name',
@@ -229,6 +267,8 @@ class OwnerPortal extends Component
 
     public function openEditStaff(int $id): void
     {
+        $this->authorizeOwner();
+
         $staff = StaffProfile::with('user')->findOrFail($id);
         $this->edit_staff_id = $staff->id;
         $this->edit_staff_name = $staff->user->name;
@@ -236,32 +276,39 @@ class OwnerPortal extends Component
         $this->edit_staff_title = $staff->title;
         $this->edit_staff_bio = (string) $staff->bio;
         $this->edit_staff_phone = (string) $staff->user->phone;
-        $this->edit_staff_badge_color = $staff->badge_color;
+        $this->edit_staff_badge_color = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $staff->badge_color) ? $staff->badge_color : '#FFBA08';
 
         $this->showEditStaffModal = true;
     }
 
     public function updateStaff(): void
     {
-        $this->validate([
-            'edit_staff_name' => 'required|string|min:3|max:100',
-            'edit_staff_nickname' => 'required|string|min:2|max:50',
-            'edit_staff_title' => 'required|string|max:100',
-            'edit_staff_phone' => 'required|string|min:9|max:20',
-        ]);
+        $this->authorizeOwner();
 
         $staff = StaffProfile::with('user')->findOrFail($this->edit_staff_id);
-        $staff->update([
-            'nickname' => $this->edit_staff_nickname,
-            'title' => $this->edit_staff_title,
-            'bio' => $this->edit_staff_bio,
-            'badge_color' => $this->edit_staff_badge_color,
+
+        $this->validate([
+            'edit_staff_name' => ['required', 'string', 'min:3', 'max:100'],
+            'edit_staff_nickname' => ['required', 'string', 'min:2', 'max:50'],
+            'edit_staff_title' => ['required', 'string', 'max:100'],
+            'edit_staff_bio' => ['nullable', 'string', 'max:500'],
+            'edit_staff_phone' => ['required', 'string', 'min:9', 'max:20', Rule::unique('users', 'phone')->ignore($staff->user_id)],
+            'edit_staff_badge_color' => ['required', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ]);
 
-        $staff->user->update([
-            'name' => $this->edit_staff_name,
-            'phone' => $this->edit_staff_phone,
-        ]);
+        DB::transaction(function () use ($staff): void {
+            $staff->update([
+                'nickname' => trim($this->edit_staff_nickname),
+                'title' => trim($this->edit_staff_title),
+                'bio' => trim($this->edit_staff_bio),
+                'badge_color' => $this->edit_staff_badge_color,
+            ]);
+
+            $staff->user->update([
+                'name' => trim($this->edit_staff_name),
+                'phone' => trim($this->edit_staff_phone),
+            ]);
+        });
 
         $this->showEditStaffModal = false;
         $this->edit_staff_id = null;
@@ -271,20 +318,26 @@ class OwnerPortal extends Component
 
     public function deleteStaff(int $id): void
     {
+        $this->authorizeOwner();
+
         $staff = StaffProfile::with('user')->findOrFail($id);
         $name = $staff->nickname;
         $user = $staff->user;
 
-        $staff->delete();
-        if ($user) {
-            $user->delete();
-        }
+        DB::transaction(function () use ($staff, $user): void {
+            $staff->delete();
+            if ($user && $user->id !== Auth::id()) {
+                $user->delete();
+            }
+        });
 
         session()->flash('success', 'Staf groomer '.$name.' berhasil dihapus dari sistem.');
     }
 
     public function toggleStaffStatus(int $id): void
     {
+        $this->authorizeOwner();
+
         $staff = StaffProfile::findOrFail($id);
         $staff->update(['is_active' => ! $staff->is_active]);
         session()->flash('success', 'Status groomer '.$staff->nickname.' diperbarui.');
@@ -292,11 +345,13 @@ class OwnerPortal extends Component
 
     public function render()
     {
+        $this->authorizeOwner();
+
         return view('livewire.owner-portal', [
             'totalAppointments' => Appointment::count(),
             'totalRevenue' => Transaction::where('status', 'paid')->sum('amount'),
-            'services' => Service::all(),
-            'staffList' => StaffProfile::with('user')->get(),
+            'services' => Service::orderBy('id')->get(),
+            'staffList' => StaffProfile::with('user')->orderBy('id')->get(),
             'recentTransactions' => Transaction::with(['appointment.service', 'appointment.staff'])
                 ->latest()
                 ->take(8)

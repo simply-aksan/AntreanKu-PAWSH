@@ -5,6 +5,7 @@ namespace App\Livewire\Auth;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
 
 class Register extends Component
@@ -25,7 +26,7 @@ class Register extends Component
         return [
             'name' => 'required|string|min:3|max:100',
             'phone' => 'required|string|min:9|max:20|unique:users,phone',
-            'password' => 'required|string|min:6|confirmed',
+            'password' => 'required|string|min:6|max:128|confirmed',
         ];
     }
 
@@ -47,7 +48,19 @@ class Register extends Component
 
     public function registerCustomer()
     {
+        $throttleKey = 'register:'.request()->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            $this->addError('phone', 'Terlalu banyak percobaan pendaftaran. Silakan tunggu '.$seconds.' detik.');
+
+            return;
+        }
+
+        $this->phone = trim($this->phone);
+        $this->name = trim($this->name);
         $this->validate();
+
+        RateLimiter::hit($throttleKey, 60);
 
         $user = User::create([
             'name' => $this->name,
@@ -58,11 +71,12 @@ class Register extends Component
         ]);
 
         Auth::login($user);
+        session()->regenerate();
 
         session()->flash('success', 'Pendaftaran berhasil! Selamat datang di AntreanKu, '.$user->name.'.');
 
         $intended = session()->pull('url.intended');
-        if ($intended) {
+        if ($intended && str_starts_with($intended, url('/'))) {
             return $this->redirect($intended, navigate: true);
         }
 

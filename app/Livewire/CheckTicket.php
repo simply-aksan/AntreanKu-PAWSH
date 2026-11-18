@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Appointment;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
 
 class CheckTicket extends Component
@@ -13,13 +14,22 @@ class CheckTicket extends Component
 
     public function search(): void
     {
+        $throttleKey = 'check-ticket:'.request()->ip();
+        if (RateLimiter::tooManyAttempts($throttleKey, 15)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            $this->addError('query', 'Terlalu banyak pencarian. Silakan coba lagi dalam '.$seconds.' detik.');
+
+            return;
+        }
+
         $this->validate([
-            'query' => 'required|string|min:3',
+            'query' => 'required|string|min:5|max:40',
         ], [
-            'query.required' => 'Masukkan nomor WhatsApp atau kode tiket.',
-            'query.min' => 'Pencarian minimal 3 karakter.',
+            'query.required' => 'Masukkan nomor WhatsApp lengkap atau kode lacak tiket.',
+            'query.min' => 'Masukkan minimal 5 karakter (nomor WA lengkap atau kode lacak/tiket).',
         ]);
 
+        RateLimiter::hit($throttleKey, 60);
         $this->hasSearched = true;
     }
 
@@ -27,11 +37,15 @@ class CheckTicket extends Component
     {
         $appointments = collect();
 
-        if ($this->hasSearched && strlen($this->query) >= 3) {
+        if ($this->hasSearched && strlen(trim($this->query)) >= 5) {
+            $q = trim($this->query);
+            // Exact match prevents wildcard PII enumeration across other customers
             $appointments = Appointment::with(['service', 'staff'])
-                ->where('customer_phone', 'like', '%'.trim($this->query).'%')
-                ->orWhere('ticket_number', 'like', '%'.trim($this->query).'%')
-                ->orWhere('tracking_code', 'like', '%'.trim($this->query).'%')
+                ->where(function ($builder) use ($q): void {
+                    $builder->where('customer_phone', $q)
+                        ->orWhere('tracking_code', strtoupper($q))
+                        ->orWhere('ticket_number', strtoupper($q));
+                })
                 ->latest()
                 ->take(10)
                 ->get();

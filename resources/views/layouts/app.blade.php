@@ -6,17 +6,19 @@
 
     <title>{{ $title ?? 'PAWSH! Pet Grooming & Studio - AntreanKu' }}</title>
 
-    <!-- Favicon: Authentic PAWSH! Vector Logo -->
+    <!-- Favicon: Authentic PAWSH! Lightweight Vector Logo -->
     <link rel="icon" type="image/svg+xml" href="{{ asset('assets/PAWSH_logo.svg') }}">
-    <link rel="alternate icon" type="image/png" href="{{ asset('assets/PAWSH_logo.png') }}">
 
     <!-- Google Fonts: Space Grotesk (Headings) & Plus Jakarta Sans (Body) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;900&display=swap" rel="stylesheet">
 
-    <!-- 3D Model Viewer by Google -->
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+    @if (request()->routeIs('home'))
+        <!-- 3D Model Viewer by Google (loaded only on homepage where 3D mascot is displayed) -->
+        <link rel="preconnect" href="https://ajax.googleapis.com" crossorigin>
+        <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js" defer></script>
+    @endif
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles

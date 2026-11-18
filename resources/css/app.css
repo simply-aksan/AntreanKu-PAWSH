@@ -1,0 +1,42 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../views/**/*.blade.php';
+
+@theme {
+    --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+
+    --color-canvas: #FDFBF7;
+    --color-ink: #121212;
+    --color-nb-matcha: #2D6A4F;
+    --color-nb-matcha-dark: #1B4332;
+    --color-nb-pistachio: #A7D7C5;
+    --color-nb-pistachio-light: #D8F3DC;
+    --color-nb-honey: #FFBA08;
+    --color-nb-honey-light: #FDE8A0;
+    --color-nb-coral: #F28482;
+    --color-nb-sky: #BEE1E6;
+    --color-nb-cream: #FAF0CA;
+}
+
+@layer utilities {
+    .shadow-nb-xs {
+        box-shadow: 2px 2px 0px 0px #121212;
+    }
+    .shadow-nb {
+        box-shadow: 4px 4px 0px 0px #121212;
+    }
+    .shadow-nb-lg {
+        box-shadow: 6px 6px 0px 0px #121212;
+    }
+    .shadow-nb-xl {
+        box-shadow: 8px 8px 0px 0px #121212;
+    }
+    .bg-grid-soft {
+        background-size: 28px 28px;
+        background-image: linear-gradient(to right, rgba(45, 106, 79, 0.05) 1px, transparent 1px),
+                          linear-gradient(to bottom, rgba(45, 106, 79, 0.05) 1px, transparent 1px);
+    }
+}
